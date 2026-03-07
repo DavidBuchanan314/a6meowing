@@ -130,7 +130,7 @@ int main(int argc, char** argv)
         attempt++;
         MEOWWWW("Exploit attempt %d", attempt);
 
-        a6meowing(&client, useCheckm8 ? use_checkm8_payload : remap_rom_to_sram);
+        a6meowing(&client, useCheckm8 ? remap_rom_to_sram | use_checkm8_payload : remap_rom_to_sram);
 
         /* a6meowing() propagates the last reconnected handle back through
          * &client. get_device() will close it before opening a fresh one. */

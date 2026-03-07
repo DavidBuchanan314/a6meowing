@@ -128,11 +128,8 @@ __attribute__((noinline)) void demote(void)
 
 __attribute__((noinline)) void copy_checkm8_payload(void)
 {
-    // Copy ROM into SRAM so we can patch it.
-    my_bcopy(VROM_BASE_ADDRESS, LOAD_ADDRESS, 0x10000);
-
     // Copy the handler to JUMP_PAYLOAD_BASE.
-    my_bcopy((uint32_t)handler_bin, JUMP_PAYLOAD_BASE, handler_bin_len);
+    //my_bcopy((uint32_t)handler_bin, JUMP_PAYLOAD_BASE, handler_bin_len);
 
     // --- Inline hook at handle_interface_request (ROM 0x8160) ---
     //
@@ -140,7 +137,7 @@ __attribute__((noinline)) void copy_checkm8_payload(void)
     // our handler.  The handler's 16-byte trampoline replays the saved
     // original instructions and resumes at 0x8168 for non-0xA1 requests.
     uint32_t *hook_site  = (uint32_t *)(LOAD_ADDRESS + 0x8160);
-    uint32_t *trampoline = (uint32_t *)JUMP_PAYLOAD_BASE;
+    uint32_t *trampoline = (uint32_t *)handler_bin;
 
     // Bytes 0..7: save original instructions into trampoline
     trampoline[0] = hook_site[0];   // push {r4,r5,r7,lr}; add r7,sp,#8
@@ -152,7 +149,7 @@ __attribute__((noinline)) void copy_checkm8_payload(void)
     // Patch hook site: LDR.W PC,[PC] + handler entry
     // Handler entry = JUMP_PAYLOAD_BASE + 0x11 (16-byte trampoline + Thumb)
     hook_site[0] = 0xF000F8DF;
-    hook_site[1] = JUMP_PAYLOAD_BASE + 0x11;
+    hook_site[1] = (uint32_t)handler_bin + 0x11;
 
     // Flush caches so patched code is visible to instruction fetch.
     asm volatile(
@@ -163,25 +160,12 @@ __attribute__((noinline)) void copy_checkm8_payload(void)
         "isb\n"
         ::: "r0", "memory"
     );
-
-    // Remap virtual address 0 to the SRAM copy via TTB.
-    // This makes the patched ROM code execute in place of the original.
-    uint32_t *ttbr0 = (uint32_t *)TTBR0_BASE;
-    ttbr0[0] = 0x10000c1e;
-    arm_write_ttb(TTBR0_BASE);
-    arm_flush_tlbs();
 }
 
 __attribute__((noinline)) int main_payload(void)
 {
     uint32_t* gOffsets = (uint32_t*)(RELOCATE_PAYLOAD_ADDRESS + 0x300);
     gFlag = gOffsets[0];
-    
-    if((gFlag & remap_rom_to_sram) && (gFlag & use_checkm8_payload))
-    {
-        return -1;
-    }
-    
     
     if(gFlag & remap_rom_to_sram)
     {
