@@ -1,6 +1,9 @@
 #ifndef LOG_H
 #define LOG_H
 
+#include <stdio.h>
+#include <stdbool.h>
+
 extern bool debug_enabled;
 
 /* LOG macro */

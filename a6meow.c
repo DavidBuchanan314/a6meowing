@@ -14,27 +14,27 @@
 static unsigned char blank[DFU_MAX_TRANSFER_SZ];
 
 // checkm8 usb req
-__unused static transfer_t usb_req_stall(io_client_t client)
+__attribute__((unused)) static transfer_t usb_req_stall(io_client_t client)
 {
     return MEOW_CONTROL_TRANSFER_TIME(client, 2, 3, 0x0000, 128, NULL, 0, 10);
 }
 
-__unused static transfer_t usb_req_leak(io_client_t client, unsigned char* blank)
+__attribute__((unused)) static transfer_t usb_req_leak(io_client_t client, unsigned char* blank)
 {
     return MEOW_CONTROL_TRANSFER_TIME(client, 0x80, 6, 0x0304, 0x040a, blank, EP0_MAX_PACKET_SZ, 1);
 }
 
-__unused static transfer_t usb_req_no_leak(io_client_t client, unsigned char* blank)
+__attribute__((unused)) static transfer_t usb_req_no_leak(io_client_t client, unsigned char* blank)
 {
     return MEOW_CONTROL_TRANSFER_TIME(client, 0x80, 6, 0x0304, 0x040a, blank, EP0_MAX_PACKET_SZ + 1, 1);
 }
 
-__unused static transfer_t leak(io_client_t client, unsigned char* blank)
+__attribute__((unused)) static transfer_t leak(io_client_t client, unsigned char* blank)
 {
     return MEOW_CONTROL_TRANSFER_TIME(client, 0x80, 6, 0x0304, 0x040a, blank, 3 * EP0_MAX_PACKET_SZ, 1);
 }
 
-__unused static transfer_t no_leak(io_client_t client, unsigned char* blank)
+__attribute__((unused)) static transfer_t no_leak(io_client_t client, unsigned char* blank)
 {
     return MEOW_CONTROL_TRANSFER_TIME(client, 0x80, 6, 0x0304, 0x040a, blank, (3 * EP0_MAX_PACKET_SZ) + 1, 1);
 }
@@ -50,14 +50,14 @@ static void preRetry(io_client_t client, unsigned int i)
     usleep(10000);
 }
 
-static int isStalled(IOReturn res)
+static int isStalled(int res)
 {
     if(res == kIOUSBPipeStalled || res == kUSBHostReturnPipeStalled)
         return 1;
     return 0;
 }
 
-static int isTimeout(IOReturn res)
+static int isTimeout(int res)
 {
     if(res == kIOReturnTimeout || res == kIOUSBTransactionTimeout)
         return 1;
@@ -82,7 +82,7 @@ static int checkm8_a6meow(io_client_t client)
     MEOWSET(&blank, '\0', DFU_MAX_TRANSFER_SZ);
     unsigned int push = 0x7C0; // max: 0x800 - 0x40
     unsigned int size = 0;
-    UInt32 sent = 0;
+    uint32_t sent = 0;
     
     while(1)
     {

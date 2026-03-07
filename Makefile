@@ -1,25 +1,28 @@
-MACOSX_CC		= xcrun -sdk macosx gcc
+CC		= gcc
 
-CFLAGS			= -I./include -Wall
-CFLAGS			+= -O0
+CFLAGS		= -I./include -Wall
+CFLAGS		+= -O0
+CFLAGS		+= $(shell pkg-config --cflags libusb-1.0)
 
-LDFLAGS			= -framework IOKit -framework CoreFoundation
+LDFLAGS		= $(shell pkg-config --libs libusb-1.0)
 
-MACOSX_OBJ		= a6meowing
-
-CODESIGN	= codesign -f -s - --entitlements ent.xml
-STRIP		= strip
+OBJ		= a6meowing
 
 SOURCE		= io/iousb.c common/common.c
-			
+
 EXPLOIT		= a6meow.c
 
-.PHONY: all clean
+.PHONY: all clean shellcode
 
-all:
-	cd shellcode && make
-	$(MACOSX_CC) $(CFLAGS) $(LDFLAGS) $(SOURCE) main.c $(EXPLOIT) -o $(MACOSX_OBJ)
+all: shellcode
+	$(CC) $(CFLAGS) $(SOURCE) main.c $(EXPLOIT) $(LDFLAGS) -o $(OBJ)
+
+shellcode:
+	@if [ ! -f shellcode/payload.h ]; then \
+		echo "shellcode/payload.h not found — rebuild requires macOS iOS SDK"; \
+		exit 1; \
+	fi
 
 clean:
 	cd shellcode && make clean
-	-$(RM) $(MACOSX_OBJ)
+	-$(RM) $(OBJ)
