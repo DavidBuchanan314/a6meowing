@@ -14,7 +14,7 @@
 io_client_t client;
 bool debug_enabled = false;
 
-int a6meowing(io_client_t client);
+int a6meowing(io_client_t *pclient);
 
 static void meow_list(void)
 {
@@ -119,11 +119,10 @@ int main(int argc, char** argv)
         attempt++;
         MEOWWWW("Exploit attempt %d", attempt);
 
-        a6meowing(client);
+        a6meowing(&client);
 
-        /* a6meowing() internally closes our handle via reconnect,
-         * so the global client is stale. Re-discover the device. */
-        client = NULL;
+        /* a6meowing() propagates the last reconnected handle back through
+         * &client. get_device() will close it before opening a fresh one. */
         usleep(500000);
 
         MEOWWWW("Waiting for DFU meow device");
