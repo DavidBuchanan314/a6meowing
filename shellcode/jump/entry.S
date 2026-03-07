@@ -27,7 +27,8 @@
 
 .globl start
 .org 0x1800
+.syntax unified
 .thumb
 .thumb_func
 start:
-b.n _jumpto
+b.n jumpto

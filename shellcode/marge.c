@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     
     memset(outBuf, '\0', outSize);
     memcpy(outBuf, entryBuf, entrySize);
-    memcpy(outBuf+0x300, payloadBuf+0x300, payloadSize);
+    memcpy(outBuf+0x300, payloadBuf+0x300, payloadSize - 0x300);
     
     FILE *out = fopen(outFilePath, "w");
     if (!out) {

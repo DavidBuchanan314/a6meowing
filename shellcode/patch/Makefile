@@ -1,24 +1,19 @@
-CC		= xcrun -sdk iphoneos gcc
+CC		= arm-none-eabi-gcc
+OBJCOPY	= arm-none-eabi-objcopy
 
-OBJCOPY	= /opt/homebrew/opt/binutils/bin/gobjcopy
-
-CFLAGS	= -Iinclude/ -target armv7-apple-ios10.0
-CFLAGS	+= -Wall -Wno-incompatible-library-redeclaration -fno-stack-protector -nostdlib -static -nostdlibinc -Wl,-preload -Wl,-no_uuid
-CFLAGS	+= -Wl,-e,start -Wl,-order_file,sym_order.txt -Wl,-image_base,0x10010000 -Wl,-sectalign,__DATA,__common,0x4 -Wl,-segalign,0x4
+CFLAGS	= -Iinclude/ -march=armv7-a -mthumb -mthumb-interwork
+CFLAGS	+= -Wall -fno-stack-protector -nostdlib -nostartfiles -ffreestanding -fno-builtin
+CFLAGS	+= -T patch.ld -Wl,--nmagic -Wl,--gc-sections
 
 OBJ		= payload
 
-SOURCE	= patch.c
-			
-.PHONY: all
+payload.bin: entry.S patch.c patch.ld
+	$(CC) entry.S patch.c $(CFLAGS) -o $(OBJ).elf
+	$(OBJCOPY) -O binary $(OBJ).elf $(OBJ).bin
+	-$(RM) $(OBJ).elf
 
-all:
-	$(CC) entry.S $(SOURCE) $(CFLAGS) -o $(OBJ).o
-	../vmacho -fM 0x80000 $(OBJ).o $(OBJ).bin
-	-$(RM) $(OBJ).o
-	
+.PHONY: clean
 clean:
-	-$(RM) $(OBJ).o
+	-$(RM) $(OBJ).elf
 	-$(RM) $(OBJ).bin
-	-$(RM) $(OBJ).h
-	
+

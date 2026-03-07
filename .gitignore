@@ -14,3 +14,6 @@ shellcode/marge
 shellcode/meow
 shellcode/payload.bin
 shellcode/patch/payload.bin
+shellcode/*.elf
+shellcode/patch/*.elf
+shellcode/jump/*.elf

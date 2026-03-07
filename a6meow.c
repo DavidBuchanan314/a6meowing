@@ -43,10 +43,12 @@ static void preRetry(io_client_t client, unsigned int i)
 {
     transfer_t result;
     MEOWSET(&blank, '\x0', EP0_MAX_PACKET_SZ);
-    
+
     DEVMEOW("MEOW %d", i);
     usleep(10000);
     result = MEOW_SEND_CAT(client, blank, EP0_MAX_PACKET_SZ); // send blank data and redo the request.
+    if(result.ret != kIOReturnSuccess)
+        DEVMEOW("MEOW %d retry send failed: %x", i, result.ret);
     usleep(10000);
 }
 

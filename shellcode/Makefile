@@ -1,35 +1,42 @@
-CC		= xcrun -sdk iphoneos gcc
+CC		= arm-none-eabi-gcc
+OBJCOPY	= arm-none-eabi-objcopy
 
-OBJCOPY	= /opt/homebrew/opt/binutils/bin/gobjcopy
-
-CFLAGS	= -Iinclude/ -target armv7-apple-ios10.0
-CFLAGS	+= -Wall -Wno-incompatible-library-redeclaration -fno-stack-protector -nostdlib -static -nostdlibinc -Wl,-preload -Wl,-no_uuid
-CFLAGS	+= -Wl,-e,start -Wl,-order_file,sym_order.txt -Wl,-image_base,0x10000000 -Wl,-sectalign,__DATA,__common,0x4 -Wl,-segalign,0x4
+CFLAGS	= -Iinclude/ -march=armv7-a -mthumb -mthumb-interwork
+CFLAGS	+= -Wall -fno-stack-protector -nostdlib -nostartfiles -ffreestanding -fno-builtin
+CFLAGS	+= -T entry.ld -Wl,--nmagic -Wl,--gc-sections
 
 OBJ		= payload
 
-SOURCE	= entryp.c
-			
-.PHONY: all
+ENTRY_SRC	= entry.S entryp.c entry.ld
+PATCH_SRC	= patch/entry.S patch/patch.c patch/patch.ld
+JUMP_SRC	= jump/entry.S jump/jump.c jump/jump.ld
 
-all:
-	cd jump && make
-	cd patch && make
-	gcc marge.c -o marge
-	$(CC) entry.S $(SOURCE) $(CFLAGS) -o pre_$(OBJ).o
-	./vmacho -fM 0x80000 pre_$(OBJ).o pre_$(OBJ).bin
-	-$(RM) pre_$(OBJ).o
+.PHONY: clean
+
+$(OBJ).h: pre_$(OBJ).bin patch/$(OBJ).bin marge
 	./marge pre_$(OBJ).bin patch/$(OBJ).bin $(OBJ).bin
 	xxd -i $(OBJ).bin $(OBJ).h
-	-$(RM) pre_$(OBJ).bin
-	
+
+pre_$(OBJ).bin: $(ENTRY_SRC) jump/jump.h
+	$(CC) entry.S entryp.c $(CFLAGS) -o pre_$(OBJ).elf
+	$(OBJCOPY) -O binary pre_$(OBJ).elf pre_$(OBJ).bin
+	-$(RM) pre_$(OBJ).elf
+
+patch/$(OBJ).bin: $(PATCH_SRC)
+	cd patch && $(MAKE)
+
+jump/jump.h: $(JUMP_SRC) jump/cut.c
+	cd jump && $(MAKE)
+
+marge: marge.c
+	gcc marge.c -o marge
+
 clean:
 	cd jump && make clean
 	cd patch && make clean
 	-$(RM) marge
-	-$(RM) $(OBJ).o
 	-$(RM) $(OBJ).bin
 	-$(RM) $(OBJ).h
-	-$(RM) pre_$(OBJ).o
+	-$(RM) pre_$(OBJ).elf
 	-$(RM) pre_$(OBJ).bin
-	
+

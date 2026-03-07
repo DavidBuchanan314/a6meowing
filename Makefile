@@ -18,11 +18,8 @@ all: shellcode
 	$(CC) $(CFLAGS) $(SOURCE) main.c $(EXPLOIT) $(LDFLAGS) -o $(OBJ)
 
 shellcode:
-	@if [ ! -f shellcode/payload.h ]; then \
-		echo "shellcode/payload.h not found — rebuild requires macOS iOS SDK"; \
-		exit 1; \
-	fi
+	@$(MAKE) -C shellcode
 
 clean:
-	cd shellcode && make clean
+	$(MAKE) -C shellcode clean
 	-$(RM) $(OBJ)

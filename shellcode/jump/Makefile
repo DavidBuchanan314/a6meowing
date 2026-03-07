@@ -1,31 +1,32 @@
-CC		= xcrun -sdk iphoneos gcc
+CC		= arm-none-eabi-gcc
+OBJCOPY	= arm-none-eabi-objcopy
 
-OBJCOPY	= /opt/homebrew/opt/binutils/bin/gobjcopy
-
-CFLAGS	= -Iinclude/ -target armv7-apple-ios10.0
-CFLAGS	+= -Wall -Wno-incompatible-library-redeclaration -fno-stack-protector -nostdlib -static -nostdlibinc -Wl,-preload -Wl,-no_uuid
-CFLAGS	+= -Wl,-e,start -Wl,-order_file,sym_order.txt -Wl,-image_base,0x10078000 -Wl,-sectalign,__DATA,__common,0x4 -Wl,-segalign,0x4
+CFLAGS	= -Iinclude/ -march=armv7-a -mthumb -mthumb-interwork
+CFLAGS	+= -Wall -fno-stack-protector -nostdlib -nostartfiles -ffreestanding -fno-builtin
+CFLAGS	+= -T jump.ld -Wl,--nmagic -Wl,--gc-sections
 
 OBJ		= jump
 
-SOURCE	= jump.c
-			
-.PHONY: all
-
-all:
-	gcc cut.c -o cut
-	$(CC) entry.S $(SOURCE) $(CFLAGS) -o $(OBJ).o
-	../vmacho -fM 0x80000 $(OBJ).o $(OBJ).prebin
-	./cut $(OBJ).prebin $(OBJ).bin
+jump.h: jump.bin
 	xxd -i $(OBJ).bin $(OBJ).h
-	-$(RM) $(OBJ).o
+
+jump.bin: jump.prebin cut
+	./cut $(OBJ).prebin $(OBJ).bin
 	-$(RM) $(OBJ).prebin
-	
+
+jump.prebin: entry.S jump.c jump.ld
+	$(CC) entry.S jump.c $(CFLAGS) -o $(OBJ).elf
+	$(OBJCOPY) -O binary $(OBJ).elf $(OBJ).prebin
+	-$(RM) $(OBJ).elf
+
+cut: cut.c
+	gcc cut.c -o cut
+
+.PHONY: clean
 clean:
-	-$(RM) $(ASMSOURCE)
-	-$(RM) $(OBJ).o
+	-$(RM) $(OBJ).elf
 	-$(RM) $(OBJ).bin
 	-$(RM) $(OBJ).prebin
 	-$(RM) $(OBJ).h
 	-$(RM) cut
-	
+

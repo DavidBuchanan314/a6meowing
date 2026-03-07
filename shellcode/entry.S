@@ -30,8 +30,8 @@
 .org    0x0
 start:
 push {lr}
-blx _prepare
-b 0x10400-0x10
+blx prepare
+b 0x10010400
 
 .org    0x40
 end:

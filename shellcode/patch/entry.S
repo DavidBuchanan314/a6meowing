@@ -24,6 +24,7 @@
  * SOFTWARE.
  *
  */
+
 .text
 
 .pool
@@ -47,7 +48,7 @@ FLAGS:
 .org    0x400
 start2:
 bl  _check8_payload
-blx _main_payload
+blx main_payload
 pop {pc}
 
 _check8_payload:
