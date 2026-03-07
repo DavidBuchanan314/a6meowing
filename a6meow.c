@@ -168,9 +168,9 @@ static int checkm8_a6meow(io_client_t *pclient)
     result = MEOW_CONTROL_TRANSFER_TIME(*pclient, 0x21, 1, 0x0000, 0x0000, NULL, 0, 100);
     result = MEOW_CONTROL_TRANSFER_TIME(*pclient, 0xa1, 3, 0x0000, 0x0000, blank, 6, 100);
     result = MEOW_CONTROL_TRANSFER_TIME(*pclient, 0xa1, 3, 0x0000, 0x0000, blank, 6, 100);
-    
+
     usleep(1000000);
-    
+
     MEOWWWW("Reconnecting meow");
     MEOW_RECONNECT(pclient, 10, DEVICE_DFU, USB_RESET|USB_REENUMERATE, false, 10000);
     if(!*pclient) {
@@ -178,7 +178,7 @@ static int checkm8_a6meow(io_client_t *pclient)
         return -1;
     }
     MEOWWWW("Found DFU meow device");
-    
+
     return 0;
 }
 

