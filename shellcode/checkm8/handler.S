@@ -15,7 +15,7 @@
 .thumb
 
 @ s5l8950x constants
-.set LOAD_ADDRESS,   0x10000000
+.set LOAD_ADDRESS,   0x10020000
 .set EXEC_MAGIC,     0x65786563
 .set DONE_MAGIC,     0x646F6E65
 .set MEMC_MAGIC,     0x6D656D63

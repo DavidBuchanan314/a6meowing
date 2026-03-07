@@ -128,9 +128,6 @@ __attribute__((noinline)) void demote(void)
 
 __attribute__((noinline)) void copy_checkm8_payload(void)
 {
-    // Copy the handler to JUMP_PAYLOAD_BASE.
-    //my_bcopy((uint32_t)handler_bin, JUMP_PAYLOAD_BASE, handler_bin_len);
-
     // --- Inline hook at handle_interface_request (ROM 0x8160) ---
     //
     // We overwrite the first 8 bytes of the function with a branch to
@@ -179,7 +176,7 @@ __attribute__((noinline)) int main_payload(void)
     
     if(gFlag & use_checkm8_payload)
     {
-        copy_checkm8_payload();
+        copy_checkm8_payload(); // TODO: make this require remap_rom_to_sram also
     }
     
     return 0;
