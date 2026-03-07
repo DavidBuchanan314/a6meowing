@@ -291,10 +291,10 @@ int io_open(io_client_t *pclient, uint16_t pid, bool srnm)
         return -1;
     }
 
-    /* Detach kernel driver if attached (e.g. apple-mfi-fastcharge) */
-    if (libusb_kernel_driver_active(handle, 0) == 1) {
-        libusb_detach_kernel_driver(handle, 0);
-    }
+    /* Auto-detach kernel driver (e.g. apple-mfi-fastcharge) when we
+     * claim the interface, and reattach when we release. This avoids
+     * races with the manual detach+set_configuration sequence. */
+    libusb_set_auto_detach_kernel_driver(handle, 1);
 
     r = libusb_set_configuration(handle, 1);
     if (r < 0 && r != LIBUSB_ERROR_BUSY) {
