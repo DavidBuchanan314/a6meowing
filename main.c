@@ -114,8 +114,32 @@ int main(int argc, char** argv)
         return -1;
     }
     
-    a6meowing(client);
-    
+    int attempt = 0;
+    while(1) {
+        attempt++;
+        MEOWWWW("Exploit attempt %d", attempt);
+
+        a6meowing(client);
+
+        /* a6meowing() internally closes our handle via reconnect,
+         * so the global client is stale. Re-discover the device. */
+        client = NULL;
+        usleep(500000);
+
+        MEOWWWW("Waiting for DFU meow device");
+        while(get_device(DEVICE_DFU, true)) {
+            sleep(1);
+        }
+
+        if(client->hasSerialStr && client->devinfo.hasPwnd) {
+            MEOWWWW("PWND:[%s] — exploit succeeded on attempt %d", client->devinfo.pwnstr, attempt);
+            break;
+        }
+
+        MEOWWWW("Not pwned yet, retrying...");
+        sleep(1);
+    }
+
     return 0;
 }
 
