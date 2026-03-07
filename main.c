@@ -11,10 +11,14 @@
 
 #include <getopt.h>
 
+#define remap_rom_to_sram   (1 << 0)
+#define enable_demotion     (1 << 1)
+#define use_checkm8_payload (1 << 2)
+
 io_client_t client;
 bool debug_enabled = false;
 
-int a6meowing(io_client_t *pclient);
+int a6meowing(io_client_t *pclient, uint16_t flag);
 
 static void meow_list(void)
 {
@@ -29,6 +33,7 @@ static void meow_usage(char** argv)
     printf("  -h, --help\t\t\t\x1b[36mmeow usage\x1b[39m\n");
     printf("  -l, --list\t\t\t\x1b[36mmeow list of supported devices\x1b[39m\n");
     printf("  -c, --cleandfu\t\t\x1b[36mmeow cleandfu\x1b[39m\n");
+    printf("  -k, --checkm8\t\t\t\x1b[36muse checkm8 USB handler payload\x1b[39m\n");
     printf("  -d, --debug\t\t\t\x1b[36menable meow log\x1b[39m\n");
     printf("\n");
 }
@@ -37,6 +42,7 @@ int main(int argc, char** argv)
 {
     
     bool useRecovery = false;
+    bool useCheckm8 = false;
 
     MEOW_NOFUNC("================================");
     MEOW_NOFUNC("::");
@@ -58,11 +64,12 @@ int main(int argc, char** argv)
         { "help",           no_argument,       NULL, 'h' },
         { "list",           no_argument,       NULL, 'l' },
         { "cleandfu",       no_argument,       NULL, 'c' },
+        { "checkm8",        no_argument,       NULL, 'k' },
         { "debug",          no_argument,       NULL, 'd' },
         { NULL, 0, NULL, 0 }
     };
     
-    const char *opsStr = "hlcd";
+    const char *opsStr = "hlckd";
     
     while ((opt = getopt_long(argc, argv, opsStr, longopts, NULL)) > 0) {
         switch (opt) {
@@ -81,6 +88,10 @@ int main(int argc, char** argv)
                 
             case 'c':
                 useRecovery = true;
+                break;
+                
+            case 'k':
+                useCheckm8 = true;
                 break;
                 
             default:
@@ -119,7 +130,7 @@ int main(int argc, char** argv)
         attempt++;
         MEOWWWW("Exploit attempt %d", attempt);
 
-        a6meowing(&client);
+        a6meowing(&client, useCheckm8 ? use_checkm8_payload : remap_rom_to_sram);
 
         /* a6meowing() propagates the last reconnected handle back through
          * &client. get_device() will close it before opening a fresh one. */

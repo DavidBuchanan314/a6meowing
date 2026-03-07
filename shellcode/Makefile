@@ -10,6 +10,7 @@ OBJ		= payload
 ENTRY_SRC	= entry.S entryp.c entry.ld
 PATCH_SRC	= patch/entry.S patch/patch.c patch/patch.ld
 JUMP_SRC	= jump/entry.S jump/jump.c jump/jump.ld
+CHECKM8_SRC	= checkm8/handler.S checkm8/handler.ld
 
 .PHONY: clean
 
@@ -22,8 +23,11 @@ pre_$(OBJ).bin: $(ENTRY_SRC) jump/jump.h
 	$(OBJCOPY) -O binary pre_$(OBJ).elf pre_$(OBJ).bin
 	-$(RM) pre_$(OBJ).elf
 
-patch/$(OBJ).bin: $(PATCH_SRC)
+patch/$(OBJ).bin: $(PATCH_SRC) checkm8/handler.h
 	cd patch && $(MAKE)
+
+checkm8/handler.h: $(CHECKM8_SRC)
+	cd checkm8 && $(MAKE)
 
 jump/jump.h: $(JUMP_SRC) jump/cut.c
 	cd jump && $(MAKE)
@@ -33,6 +37,7 @@ marge: marge.c
 
 clean:
 	cd jump && make clean
+	cd checkm8 && make clean
 	cd patch && make clean
 	-$(RM) marge
 	-$(RM) $(OBJ).bin

@@ -186,9 +186,8 @@ static int checkm8_a6meow(io_client_t *pclient)
 #define enable_demotion     (1 << 1)
 #define use_checkm8_payload (1 << 2)
 
-int a6meowing(io_client_t *pclient)
+int a6meowing(io_client_t *pclient, uint16_t flag)
 {
-    uint16_t flag = remap_rom_to_sram;
     uint16_t* gOffsets = (uint16_t*)(payload_bin + 0x300);
     gOffsets[0] = flag;
     
