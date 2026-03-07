@@ -193,11 +193,13 @@ int a6meowing(io_client_t *pclient)
     gOffsets[0] = flag;
     
     uint8_t* flagptr = MEOWMEOW(payload_bin, payload_bin_len, " FLAG:0000 PWND:[meowing]", sizeof(" FLAG:0000 PWND:[meowing]"));
-    flagptr += 6;
-    char str[8];
-    MEOWSET(&str, 0x0, 8);
-    SPRINTMEOW(str, "%04x", flag);
-    MEOWCPY(flagptr, str, 4);
+    if (flagptr) {
+        flagptr += 6;
+        char str[8];
+        MEOWSET(&str, 0x0, 8);
+        SPRINTMEOW(str, "%04x", flag);
+        MEOWCPY(flagptr, str, 4);
+    }
     
     return checkm8_a6meow(pclient);
 }
