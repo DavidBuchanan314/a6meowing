@@ -54,6 +54,8 @@ int main(int argc, char** argv)
     MEOW_NOFUNC("::");
     MEOW_NOFUNC(":: ---- made by ----");
     MEOW_NOFUNC(":: kok3shidoll (meow)");
+    MEOW_NOFUNC(":: ---- with changes by ----");
+    MEOW_NOFUNC(":: retr0id");
     MEOW_NOFUNC(":: ---- thanks to ----");
     MEOW_NOFUNC(":: checkra1n");
     MEOW_NOFUNC("================================");
