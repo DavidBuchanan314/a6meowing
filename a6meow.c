@@ -1,5 +1,5 @@
 /*
- * a6meowing - checkm8.c
+ * a6meowing - a6meow.c
  *
  * Copyright (c) 2022 - 2023 kok3shidoll
  *
@@ -13,7 +13,7 @@
 
 static unsigned char blank[DFU_MAX_TRANSFER_SZ];
 
-// checkm8 usb req
+// checkm8 exploit USB requests
 __attribute__((unused)) static transfer_t usb_req_stall(io_client_t client)
 {
     return MEOW_CONTROL_TRANSFER_TIME(client, 2, 3, 0x0000, 128, NULL, 0, 10);
@@ -184,7 +184,7 @@ static int checkm8_a6meow(io_client_t *pclient)
 
 #define remap_rom_to_sram   (1 << 0)
 #define enable_demotion     (1 << 1)
-#define use_checkm8_payload (1 << 2)
+#define use_usb_0xA1_2_handler (1 << 2)
 
 int a6meowing(io_client_t *pclient, uint16_t flag)
 {

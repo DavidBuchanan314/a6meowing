@@ -14,7 +14,7 @@ shellcode/marge
 shellcode/meow
 shellcode/payload.bin
 shellcode/patch/payload.bin
-shellcode/checkm8/handler.bin
+shellcode/usb_0xA1_2/handler.bin
 shellcode/*.elf
 shellcode/patch/*.elf
 shellcode/jump/*.elf

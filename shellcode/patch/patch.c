@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "../checkm8/handler.h"
+#include "../usb_0xA1_2/handler.h"
 
 typedef void (*write_ttb_t)(uint32_t val);
 typedef void (*flush_tlbs_t)(void);
@@ -26,7 +26,7 @@ uint32_t gFlag;
 
 #define remap_rom_to_sram   (1 << 0)
 #define enable_demotion     (1 << 1)
-#define use_checkm8_payload (1 << 2)
+#define use_usb_0xA1_2_handler (1 << 2)
 
 __attribute__((noinline)) void patchROM(void)
 {
@@ -126,7 +126,7 @@ __attribute__((noinline)) void demote(void)
     fuseBase[0] &= 0xfffffffe;
 }
 
-__attribute__((noinline)) void copy_checkm8_payload(void)
+__attribute__((noinline)) void install_usb_0xA1_2_handler(void)
 {
     // --- Inline hook at handle_interface_request (ROM 0x8160) ---
     //
@@ -174,9 +174,9 @@ __attribute__((noinline)) int main_payload(void)
         demote();
     }
     
-    if(gFlag & use_checkm8_payload)
+    if(gFlag & use_usb_0xA1_2_handler)
     {
-        copy_checkm8_payload(); // TODO: make this require remap_rom_to_sram also
+        install_usb_0xA1_2_handler(); // TODO: make this require remap_rom_to_sram also
     }
     
     return 0;

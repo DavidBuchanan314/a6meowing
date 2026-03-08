@@ -25,7 +25,7 @@
 .global _start
 _start:
 
-@ 16-byte trampoline, filled at runtime by copy_checkm8_payload().
+@ 16-byte trampoline, filled at runtime by install_usb_0xA1_2_handler().
 @
 @ Bytes  0..7:  saved original instructions from handle_interface_request
 @               (push {r4,r5,r7,lr}; add r7,sp,#8; ldrb r3,[r0,#7]; ldrb r2,[r0,#6])

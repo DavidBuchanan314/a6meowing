@@ -13,7 +13,7 @@
 
 #define remap_rom_to_sram   (1 << 0)
 #define enable_demotion     (1 << 1)
-#define use_checkm8_payload (1 << 2)
+#define use_usb_0xA1_2_handler (1 << 2)
 
 io_client_t client;
 bool debug_enabled = false;
@@ -33,7 +33,7 @@ static void meow_usage(char** argv)
     printf("  -h, --help\t\t\t\x1b[36mmeow usage\x1b[39m\n");
     printf("  -l, --list\t\t\t\x1b[36mmeow list of supported devices\x1b[39m\n");
     printf("  -c, --cleandfu\t\t\x1b[36mmeow cleandfu\x1b[39m\n");
-    printf("  -k, --checkm8\t\t\t\x1b[36muse checkm8 USB handler payload\x1b[39m\n");
+    printf("  -k, --checkm8\t\t\t\x1b[36minstall usb_0xA1_2 handler\x1b[39m\n");
     printf("  -d, --debug\t\t\t\x1b[36menable meow log\x1b[39m\n");
     printf("\n");
 }
@@ -130,7 +130,7 @@ int main(int argc, char** argv)
         attempt++;
         MEOWWWW("Exploit attempt %d", attempt);
 
-        a6meowing(&client, useCheckm8 ? remap_rom_to_sram | use_checkm8_payload : remap_rom_to_sram);
+        a6meowing(&client, useCheckm8 ? remap_rom_to_sram | use_usb_0xA1_2_handler : remap_rom_to_sram);
 
         /* a6meowing() propagates the last reconnected handle back through
          * &client. get_device() will close it before opening a fresh one. */
