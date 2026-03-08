@@ -18,3 +18,7 @@ shellcode/usb_0xA1_2/handler.bin
 shellcode/*.elf
 shellcode/patch/*.elf
 shellcode/jump/*.elf
+
+__pycache__/
+*.py[codz]
+*$py.class
