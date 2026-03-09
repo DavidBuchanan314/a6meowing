@@ -1,5 +1,8 @@
 """
 checkm8_1337.py - checkm8 exploit for Apple A6 (s5l8950x / iPhone 5)
+
+A python port of the exploit logic from a6meow.c, which is itself based
+on the checkra1n "1337" version (iiuc).
 """
 
 import argparse
