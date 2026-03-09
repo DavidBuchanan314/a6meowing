@@ -8,6 +8,7 @@ Requires: pyusb (python3 -m pip install pyusb)
 
 import struct
 import time
+from typing import cast
 
 import usb.core
 
@@ -47,12 +48,14 @@ class PwnedDFUDevice:
     def connect(self) -> None:
         """Find and connect to an Apple DFU device."""
         if self._serial_number:
-            self._dev = usb.core.find(
+            self._dev = cast(usb.core.Device | None, usb.core.find(
                 idVendor=0x05AC, idProduct=0x1227,
                 serial_number=self._serial_number,
-            )
+            ))
         else:
-            self._dev = usb.core.find(idVendor=0x05AC, idProduct=0x1227)
+            self._dev = cast(usb.core.Device | None, usb.core.find(
+                idVendor=0x05AC, idProduct=0x1227
+            ))
         if self._dev is None:
             raise ConnectionError("No Apple DFU device found")
         self._serial_number = self._dev.serial_number
